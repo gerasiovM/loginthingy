@@ -1,5 +1,5 @@
 import tkinter as tk
-import json
+from json import dumps
 from tkinter import *
 from CClientBL import *
 from CLoginGUI import CLoginGUI
@@ -105,8 +105,10 @@ class CClientGUI(CClientBL):
         self._entry_Send_ARG.insert(0, "Arg")
         self._entry_Send_ARG.place(x=380, y=268)
 
-        self._text_box_Received = tk.Text(self._canvas, font=('Calibri, 16'), fg="#808080", width=49, height=7)
+        self._text_box_Received = tk.Text(self._canvas, font=('Calibri, 12'), fg="#808080",
+                                          width=58, height=7)
         self._text_box_Received.place(x=200, y=318)
+        self._text_box_Received.config(state="disabled")
 
         self._root.after(300, self.update_received_entry)
 
@@ -142,6 +144,10 @@ class CClientGUI(CClientBL):
 
     def on_click_login(self):
         def callback_register(data):
+            self._entry_Send_CMD.delete(0, END)
+            self._entry_Send_CMD.insert(0, "REG")
+            self._entry_Send_ARG.delete(0, END)
+            self._entry_Send_ARG.insert(0, dumps(data))
             write_to_log(f"[CLIENT GUI] Registration - received data from Login wnd : {data}")
 
         def callback_signin(data):
@@ -156,8 +162,10 @@ class CClientGUI(CClientBL):
         if message == CProtocol.DISCONNECT_MSG:
             self.on_click_disconnect()
         if message:
+            self._text_box_Received.config(state="normal")
             self._text_box_Received.delete(1.0,END)
             self._text_box_Received.insert(1.0,message)
+            self._text_box_Received.config(state="disabled")
         self._root.after(300, self.update_received_entry)
 
 

@@ -107,7 +107,8 @@ class CServerGUI(CServerBL):
 
         self._server_thread = threading.Thread(target=self.start_server)
         self._server_thread.start()
-        self._cconnections = CConnectionsGUI(self._root, self.get_client_handlers(), self.get_awaiting_registration())
+        self._cconnections = CConnectionsGUI(self._root, self.get_client_handlers(),
+                                             self.get_awaiting_registration(), [self.register_user])
         self._cconnections.run()
 
     def on_click_stop(self):
@@ -116,6 +117,7 @@ class CServerGUI(CServerBL):
         self._btn_start.config(state="normal")
         self._btn_stop.config(state="disabled")
 
+        self._cconnections.destroy()
         self.stop_server()
         self._cconnections.stop()
 

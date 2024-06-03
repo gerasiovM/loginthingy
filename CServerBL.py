@@ -2,6 +2,7 @@ import threading
 import socket
 from CProtocol import *
 import sqlite3
+from cryptography.fernet import Fernet
 
 
 class CServerBL:
@@ -11,16 +12,25 @@ class CServerBL:
         # Open the log file in write mode, which truncates the file to zero length
         with open(LOG_FILE, 'w'):
             pass  # This block is empty intentionally
-        self._con = sqlite3.connect("users.db")
-        cursor = self._con.cursor()
-        cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY,login TEXT NOT NULL,password TEXT NOT NULL,key TEXT NOT NULL)''')
-        cursor.close()
+        self._con: sqlite3.dbapi2 = None
         self._host = host
         self._port = port
         self._server_socket = None
         self._is_srv_running = True
         self._awaiting_registration = []
         self._client_handlers: list[CClientHandler] = []
+
+    def register_user(self, user_data):
+        if not self._con:
+            return
+        login, password = user_data
+        key = Fernet.generate_key()
+        f = Fernet(key)
+        user_data = (login, f.encrypt(bytes(password, "utf-8")), key)
+        cursor = self._con = sqlite3.connect("users.db")
+        cursor.execute('''INSERT INTO users (login, password, key) VALUES (?, ?, ?)''', user_data)
+        cursor.commit()
+        cursor.close()
 
     def get_client_handlers(self):
         return self._client_handlers
@@ -32,6 +42,8 @@ class CServerBL:
         try:
             self._is_srv_running = False
             # Close server socket
+            if self._con is not None:
+                self._con.close()
             if self._server_socket is not None:
                 self._server_socket.close()
                 self._server_socket = None
@@ -50,6 +62,10 @@ class CServerBL:
     def start_server(self):
         try:
             self._is_srv_running = True
+            self._con = sqlite3.connect("users.db", check_same_thread=False)
+            cursor = self._con.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY,login TEXT NOT NULL,password TEXT NOT NULL,key TEXT NOT NULL)''')
+            cursor.close()
             self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._server_socket.bind((self._host, self._port))
             self._server_socket.listen(5)
@@ -100,7 +116,8 @@ class CClientHandler(threading.Thread):
                 write_to_log(f"[SERVER_BL] received from {self._address}] - {msg}")
                 # 3. If valid command - create response
                 command, args = (msg.split(">") + [""])[:2]
-                used_protocol = check_cmd(command, self._client_socket, self._callbacks)
+                used_protocol = check_cmd(command, self._client_socket,
+                                          [lambda x: self._callbacks[0](self._address + x)])
                 if used_protocol:
                     # 4. Create response
                     response = used_protocol.create_response(command, args)

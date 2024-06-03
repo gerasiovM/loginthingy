@@ -35,7 +35,7 @@ class CClientBL:
 
     def send_data(self, msg: str) -> bool:
         command, args = (msg.split(">") + [""])[:2]
-        used_protocol = check_cmd(command, self._client_socket)
+        used_protocol = check_cmd(command, self._client_socket, [])
         try:
             msg = used_protocol.create_request(command, args)
             message = msg.encode(used_protocol.FORMAT)

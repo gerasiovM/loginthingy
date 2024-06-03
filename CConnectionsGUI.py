@@ -10,10 +10,11 @@ class CConnectionsGUI:
     FONT = "Calibri"
     FONT_BUTTON = (FONT, 16)
 
-    def __init__(self, parent_wnd, client_handlers, awaiting_registration):
+    def __init__(self, parent_wnd, client_handlers, awaiting_registration, callbacks):
         self._parent_wnd = parent_wnd
         self._client_handlers: list[CClientHandler] = client_handlers
-        self._awaiting_registration = awaiting_registration
+        self._awaiting_registration: list[tuple] = awaiting_registration
+        self._callbacks = callbacks
         self._this_wnd = tk.Toplevel(parent_wnd)
         self._this_wnd.title("Connections")
 
@@ -23,6 +24,9 @@ class CConnectionsGUI:
 
         self._connections: ttk.Treeview = None
         self._disconnect_client: tk.Button = None
+
+        self._registration: ttk.Treeview = None
+        self._register_client: tk.Button = None
 
         self._registration: ttk.Treeview = None
         self._register_client: tk.Button = None
@@ -59,6 +63,7 @@ class CConnectionsGUI:
         self._registration.heading("port", text="port")
         self._registration.column("port", minwidth=0, width=100)
         self._registration.place(x=430, y=70)
+        self._this_wnd.after(50, self.update_registration)
         self._this_wnd.after(50, self.update_connected)
 
         self._img_btn = PhotoImage(file=self.BTN_IMAGE)
@@ -73,6 +78,9 @@ class CConnectionsGUI:
                                           compound="center")
         self._register_client.place(x=430, y=300)
 
+    def destroy(self):
+        self._this_wnd.destroy()
+
     def on_click_disconnect_client(self):
         item = self._connections.focus()
         if item:
@@ -82,7 +90,13 @@ class CConnectionsGUI:
                     handler.stop()
 
     def on_click_register_client(self):
-        pass
+        item = self._registration.focus()
+        if item:
+            address = self._registration.item(item, "values")
+            for client in self._awaiting_registration:
+                if list(str(x) for x in client[0:2]) == list(address):
+                    self._awaiting_registration.remove(client)
+                    self._callbacks[0](client[2:])
 
     def run(self):
         self._this_wnd.mainloop()
@@ -103,11 +117,22 @@ class CConnectionsGUI:
                 self._connections.insert("", len(self._connections.get_children()), values=values)
         self._this_wnd.after(50, self.update_connected)
 
-    def update_awaiting(self):
-        awaiting = []
+    def update_registration(self):
+        awaiting = [(x[0], str(x[1])) for x in self._awaiting_registration]
+        all_values = []
+        for item in self._registration.get_children():
+            values = self._registration.item(item, 'values')
+            all_values.append(values)
+            if values not in awaiting:
+                self._registration.delete(item)
+        for values in awaiting:
+            if values not in all_values:
+                self._registration.insert(
+                    "", len(self._registration.get_children()), values=values)
+        self._this_wnd.after(50, self.update_registration)
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    a = CConnectionsGUI(root, [])
+    a = CConnectionsGUI(root, [], [("127.0.0.1", 50467, "a", "b")], [])
     a.run()
